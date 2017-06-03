@@ -8,6 +8,8 @@
 #include "mPublic.h"
 #endif
 
+#define ALLOW_EXIST_CHILD_NUM	200
+
 int main(int argc, char** argv)
 {
 	struct ArgDev argDev;
@@ -26,17 +28,30 @@ int main(int argc, char** argv)
 	
 	// fork sub-processes as terminals
 	int i;
+	int existChild = 0;
 	pid_t pid;
 	for(i = 0; i < argDev.devidNum; i++){
 		if((pid = fork()) == -1){
 			perror("fork");
-			goto Label_ERROR;
+			i--;
+			sleep(2);
+			continue;
+//			goto Label_ERROR;
 		}
 		if(pid == 0)
 			break;
+		existChild++;
+		if(existChild == ALLOW_EXIST_CHILD_NUM){
+			waitpid(-1, NULL, 0); // must wait for one child exit
+
+		}
+		while(waitpid(-1, NULL, WNOHANG | WUNTRACED) > 0){
+			existChild--; // wait as many as possible
+		}
 	}
 	if(pid > 0){ // parent iterates
-		waitpid(-1, NULL, 0); // wait children exit
+		while(waitpid(-1, NULL, 0) > 0) // wait children exit
+			;
 	}
 	if(pid == 0){ // gogogo~
 		while(1){

@@ -14,7 +14,7 @@
 #include <time.h>
 #include <arpa/inet.h>
 #include <sys/wait.h>
-
+#include <fcntl.h>
 /* -------------------------------------- DEFINE */
 #define	ERROR		-1
 #define	OK			0

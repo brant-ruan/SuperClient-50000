@@ -106,19 +106,27 @@ Status IsOldVersion(u_short mainVer, u_char subVer1, u_char subVer2)
 #define YEAR_BASE	1900
 Status OutOfDate(u_int devid, u_int *serverTime)
 {
-	struct tm *svrTm;
-	svrTm = localtime((time_t *)serverTime);
-
+	struct tm svrTm;
+	struct tm *myTm;
+	myTm = localtime((time_t *)serverTime);
+	printf("From myTm: %d\n", myTm->tm_year);
+	memcpy(&svrTm, localtime((time_t *)serverTime), sizeof(struct tm));
+	printf("svrTime: %d\n", *serverTime);
+	printf("From svrTm: year: %d\n", svrTm.tm_year);
 	// log server time
 	char strSvrTime[40] = {0};
+
 	sprintf(strSvrTime, "收到服务器的时间:%d-%02d-%02d %02d:%02d:%02d\n", \
-			svrTm->tm_year + 1900, svrTm->tm_mon + 1, \
-			svrTm->tm_mday, svrTm->tm_hour, \
-			svrTm->tm_min, svrTm->tm_sec);
+			(svrTm.tm_year) + 1900, svrTm.tm_mon + 1, \
+			svrTm.tm_mday, svrTm.tm_hour, \
+			svrTm.tm_min, svrTm.tm_sec);
 	LogStr(devid, strSvrTime, strlen(strSvrTime));
 
-	if((svrTm->tm_year + YEAR_BASE) < SVR_YEAR)
+	if((svrTm.tm_year + YEAR_BASE) < SVR_YEAR){
+		printf("year: %d\n", svrTm.tm_year + 1900);
+		printf("SVR_YEAR: %d\n", SVR_YEAR);
 		return YES;
+	}
 
 	return NO;
 }
@@ -141,7 +149,7 @@ Status IdenN2H(struct SC_Identify *sc_iden)
 	sc_iden->reTransTime = ntohs(sc_iden->reTransTime);
 	sc_iden->randomNum = ntohl(sc_iden->randomNum);
 	sc_iden->svrTime = ntohl(sc_iden->svrTime);
-
+	sc_iden->svrTime ^= (u_int)0xFFFFFFFF;
 	return OK;
 }
 
@@ -613,7 +621,7 @@ void SetTerminal(u_char *terminal, int length, int numOf1)
 	memset(terminal, 0, length); // set all to 0 firstly
 	int k = 0;
 	while(k < numOf1){
-		int pos = rand() % length;
+		int pos = rand() % numOf1;
 		if(terminal[pos] == 0){
 			terminal[pos] = 1;
 			k++;
@@ -625,23 +633,24 @@ void SetTerminal(u_char *terminal, int length, int numOf1)
 
 /* generate terminal service information package */
 Status GenTermInfo(struct SendBuf *sendBuf, \
-		struct ConfigFile *configFile)
+		struct ConfigFile *configFile, u_int *xls_termNum)
 {
 	if(SendBufAlloc(sendBuf, sizeof(struct CS_TermInfo)) == ERROR){
 		perror("SendBufAlloc");
 		return ERROR;
 	}
-
+	srand(time(0));
 	struct CS_TermInfo *res;
 	res = (struct CS_TermInfo *)(sendBuf->buf);
 	SetHeader(&(res->header), sendBuf, TERMINFO_L, DEFAULT_ID);
 
 	u_int total = (u_int)(rand() % (configFile->termNumMax - configFile->termNumMin)\
 						+ configFile->termNumMin);
-	u_int asyncTermNum = (u_int)(rand() % ASYNC_NUM);
+	u_int asyncTermNum = (u_int)((rand() % ASYNC_NUM) + 1);
 	if(asyncTermNum > total)
 		total = asyncTermNum;
-
+	*xls_termNum = asyncTermNum;
+	printf("xls_termNum: %u\n", *xls_termNum);
 	SetTerminal(res->vTermUsed, V_TERM_NUM, asyncTermNum);
 
 	u_int ipTermNum = total - asyncTermNum;
@@ -666,13 +675,18 @@ Status GenSubTermInfo(struct SendBuf *sendBuf, \
 		perror("SendBufAlloc");
 		return ERROR;
 	}
-
+	srand(time(0));
 	struct CS_SubTermInfo *res;
 	res = (struct CS_SubTermInfo *)(sendBuf->buf);
 	SetHeader(&(res->header), sendBuf, svrHeader->pLType, svrHeader->ID);
 
-	res->port = (u_char)(rand() % 254 + 1);
-	res->portCfg = (u_char)(rand() % 254 + 1);
+	res->port = (u_char)(svrHeader->ID);
+	if(svrHeader->pLType == SUBTERMINFO_L_1){
+		res->portCfg = (u_char)(rand() % 16 + 1);
+	}
+	else{
+		res->portCfg = (u_char)(rand() % 254 + 1);
+	}
 	res->actVScr = (u_char)(rand() % screenNum);
 	res->vScrNum = (u_char)screenNum;
 	if(svrHeader->pLType == SUBTERMINFO_L_1){ // dumb terminal

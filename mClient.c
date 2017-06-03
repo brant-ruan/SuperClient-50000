@@ -15,6 +15,9 @@
 /* simulator of client */
 int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 {
+	// for ts_count.xls
+	u_int xls_vScrNum = 0;
+	u_int xls_termNum = 0;
 	// deal with socket
 	int cSocket;
 	if(CSocket(&cSocket, configFile->serverIP, configFile->serverPort) == ERROR){
@@ -53,6 +56,7 @@ int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 			}
 			LogData(devid, RDWR_RD, (char *)(&sc_iden), recvHeader->dataLen);
 			IdenN2H(&sc_iden); // network order to host order
+			printf("svrTime: %u\n", sc_iden.svrTime);
 			int isOldVersion = NO;
 			// version is less than required
 			if((isOldVersion = IsOldVersion(sc_iden.mainVersion, sc_iden.subVersion1, sc_iden.subVersion2)) == YES){
@@ -173,7 +177,7 @@ int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 			break;
 		case TERMINFO_L:
 			LogState(devid, RDWR_RD, "终端服务信息", 0);
-			if(GenTermInfo(&sendBuf, configFile) == ERROR){
+			if(GenTermInfo(&sendBuf, configFile, &xls_termNum) == ERROR){
 				perror("GenTermFileInfo");
 				SendBufFree(&sendBuf);
 				goto Label_ERROR;
@@ -191,6 +195,7 @@ int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 				SendBufFree(&sendBuf);
 				goto Label_ERROR;
 			}
+			xls_vScrNum = ((struct CS_SubTermInfo *)sendBuf.buf)->vScrNum;
 			if(recvHeader->pLType == SUBTERMINFO_L_1)
 				LogState(devid, RDWR_WR, "哑终端+对应虚屏配置信息", sendBuf.len);
 			else
@@ -225,6 +230,21 @@ int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 
 Label_OK:
 	LogStr(devid, "读取数据完成，被对端关闭\n", strlen("读取数据完成，被对端关闭\n"));
+	time_t t = time(0);
+	struct tm *curTim = localtime(&t);
+	char xls_buf[32] = {0};
+	sprintf(xls_buf, "%02d:%02d:%02d\t%u\t1\t%u\t%u", curTim->tm_hour, \
+			curTim->tm_min, curTim->tm_sec, devid, xls_termNum, xls_vScrNum);
+	int xls_fd = open("./ts_count.xls", O_RDWR | O_CREAT | O_APPEND, S_IRWXU);
+	if(xls_fd == -1){
+		perror("xls open");
+	}
+	else{
+		if(write(xls_fd, xls_buf, strlen(xls_buf)) == -1){
+			perror("write");
+		}
+		close(xls_fd);
+	}
 	remove(CPU_RAM_FILE);
 	close(cSocket);
 	return sc_iden.reTransTime; // attention. We return the retrans time to main by the way
