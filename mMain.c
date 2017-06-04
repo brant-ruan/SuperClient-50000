@@ -8,7 +8,7 @@
 #include "mPublic.h"
 #endif
 
-#define ALLOW_EXIST_CHILD_NUM	200
+#define ALLOW_EXIST_CHILD_NUM	100
 
 int main(int argc, char** argv)
 {
@@ -31,6 +31,12 @@ int main(int argc, char** argv)
 	int existChild = 0;
 	pid_t pid;
 	for(i = 0; i < argDev.devidNum; i++){
+		while(waitpid(-1, NULL, WNOHANG | WUNTRACED) > 0){
+			existChild--; // wait as many as possible
+		}
+		if(existChild == ALLOW_EXIST_CHILD_NUM){
+			waitpid(-1, NULL, 0); // must wait for one child exit
+		}
 		if((pid = fork()) == -1){
 			perror("fork");
 			i--;
@@ -41,15 +47,9 @@ int main(int argc, char** argv)
 		if(pid == 0)
 			break;
 		existChild++;
-		if(existChild == ALLOW_EXIST_CHILD_NUM){
-			waitpid(-1, NULL, 0); // must wait for one child exit
-
-		}
-		while(waitpid(-1, NULL, WNOHANG | WUNTRACED) > 0){
-			existChild--; // wait as many as possible
-		}
 	}
 	if(pid > 0){ // parent iterates
+		system("echo 'all fork completed' > ok.txt");
 		while(waitpid(-1, NULL, 0) > 0) // wait children exit
 			;
 	}

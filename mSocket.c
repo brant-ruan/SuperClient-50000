@@ -28,9 +28,9 @@ Status CSocket(int *fd, char *ip, u_short port)
 	inet_pton(AF_INET, ip, (void *)&(svrAddr.sin_addr));
 	svrAddr.sin_port = htons(port);
 	// connect
-	if(connect(*fd, (struct sockaddr *)&svrAddr, sizeof(svrAddr)) < 0){
+	while(connect(*fd, (struct sockaddr *)&svrAddr, sizeof(svrAddr)) < 0){
 		perror("connect");
-		return ERROR;
+		sleep(1);
 	}
 
 	return OK;

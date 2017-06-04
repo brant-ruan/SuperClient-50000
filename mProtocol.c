@@ -109,10 +109,7 @@ Status OutOfDate(u_int devid, u_int *serverTime)
 	struct tm svrTm;
 	struct tm *myTm;
 	myTm = localtime((time_t *)serverTime);
-	printf("From myTm: %d\n", myTm->tm_year);
 	memcpy(&svrTm, localtime((time_t *)serverTime), sizeof(struct tm));
-	printf("svrTime: %d\n", *serverTime);
-	printf("From svrTm: year: %d\n", svrTm.tm_year);
 	// log server time
 	char strSvrTime[40] = {0};
 
@@ -123,8 +120,6 @@ Status OutOfDate(u_int devid, u_int *serverTime)
 	LogStr(devid, strSvrTime, strlen(strSvrTime));
 
 	if((svrTm.tm_year + YEAR_BASE) < SVR_YEAR){
-		printf("year: %d\n", svrTm.tm_year + 1900);
-		printf("SVR_YEAR: %d\n", SVR_YEAR);
 		return YES;
 	}
 
@@ -644,21 +639,21 @@ Status GenTermInfo(struct SendBuf *sendBuf, \
 	res = (struct CS_TermInfo *)(sendBuf->buf);
 	SetHeader(&(res->header), sendBuf, TERMINFO_L, DEFAULT_ID);
 
-	u_int total = (u_int)(rand() % (configFile->termNumMax - configFile->termNumMin)\
+	u_int total = (u_int)(rand() % (configFile->termNumMax - configFile->termNumMin) \
 						+ configFile->termNumMin);
 	u_int asyncTermNum = (u_int)((rand() % ASYNC_NUM) + 1);
 	if(asyncTermNum > total)
 		total = asyncTermNum;
-	*xls_termNum = asyncTermNum;
-	printf("xls_termNum: %u\n", *xls_termNum);
+	*xls_termNum = total;
+//	printf("xls_termNum: %u\n", *xls_termNum);
 	SetTerminal(res->vTermUsed, V_TERM_NUM, asyncTermNum);
+
 
 	u_int ipTermNum = total - asyncTermNum;
 
 	SetTerminal(res->ipTermUsed, IP_TERM_NUM, ipTermNum);
 
 	res->termNum = htons((u_short)(rand() % (270 - total) + total));
-
 	return OK;
 }
 

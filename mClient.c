@@ -21,6 +21,7 @@ int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 	// deal with socket
 	int cSocket;
 	if(CSocket(&cSocket, configFile->serverIP, configFile->serverPort) == ERROR){
+		LogStr(devid, "Connected failed\n", strlen("Connected failed\n"));
 		perror("CSocket");
 		return ERROR;
 	}
@@ -56,7 +57,7 @@ int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 			}
 			LogData(devid, RDWR_RD, (char *)(&sc_iden), recvHeader->dataLen);
 			IdenN2H(&sc_iden); // network order to host order
-			printf("svrTime: %u\n", sc_iden.svrTime);
+	//		printf("svrTime: %u\n", sc_iden.svrTime);
 			int isOldVersion = NO;
 			// version is less than required
 			if((isOldVersion = IsOldVersion(sc_iden.mainVersion, sc_iden.subVersion1, sc_iden.subVersion2)) == YES){
@@ -195,7 +196,7 @@ int ClientSimulate(u_int devid, struct ConfigFile* configFile)
 				SendBufFree(&sendBuf);
 				goto Label_ERROR;
 			}
-			xls_vScrNum = ((struct CS_SubTermInfo *)sendBuf.buf)->vScrNum;
+			xls_vScrNum += ((struct CS_SubTermInfo *)sendBuf.buf)->vScrNum;
 			if(recvHeader->pLType == SUBTERMINFO_L_1)
 				LogState(devid, RDWR_WR, "ÑÆÖÕ¶Ë+¶ÔÓ¦ÐéÆÁÅäÖÃÐÅÏ¢", sendBuf.len);
 			else
@@ -233,7 +234,7 @@ Label_OK:
 	time_t t = time(0);
 	struct tm *curTim = localtime(&t);
 	char xls_buf[32] = {0};
-	sprintf(xls_buf, "%02d:%02d:%02d\t%u\t1\t%u\t%u", curTim->tm_hour, \
+	sprintf(xls_buf, "%02d:%02d:%02d\t%u\t1\t%u\t%u\n", curTim->tm_hour, \
 			curTim->tm_min, curTim->tm_sec, devid, xls_termNum, xls_vScrNum);
 	int xls_fd = open("./ts_count.xls", O_RDWR | O_CREAT | O_APPEND, S_IRWXU);
 	if(xls_fd == -1){
